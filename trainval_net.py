@@ -58,7 +58,7 @@ def parse_args():
                       default=10000, type=int)
 
   parser.add_argument('--save_dir', dest='save_dir',
-                      help='directory to save models', default="/srv/share/jyang375/models",
+                      help='directory to save models', default="/hdd/robik/FasterRCNN/models",
                       type=str)
   parser.add_argument('--nw', dest='num_workers',
                       help='number of worker to load data',
@@ -68,7 +68,7 @@ def parse_args():
                       action='store_true')
   parser.add_argument('--ls', dest='large_scale',
                       help='whether use large imag scale',
-                      action='store_true')                      
+                      action='store_true')
   parser.add_argument('--mGPUs', dest='mGPUs',
                       help='whether use multiple GPUs',
                       action='store_true')
@@ -114,7 +114,7 @@ def parse_args():
 # log and diaplay
   parser.add_argument('--use_tfboard', dest='use_tfboard',
                       help='whether use tensorflow tensorboard',
-                      default=False, type=bool)
+                      default=True, type=bool)
 
   args = parser.parse_args()
   return args
@@ -296,7 +296,8 @@ if __name__ == '__main__':
     fasterRCNN.cuda()
 
   iters_per_epoch = int(train_size / args.batch_size)
-
+  print("Faster RCNN model: ")
+  print(fasterRCNN)
   for epoch in range(args.start_epoch, args.max_epochs + 1):
     # setting to train mode
     fasterRCNN.train()
