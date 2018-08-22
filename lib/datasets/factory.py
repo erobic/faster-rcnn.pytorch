@@ -15,6 +15,7 @@ from datasets.pascal_voc import pascal_voc
 from datasets.coco import coco
 from datasets.imagenet import imagenet
 from datasets.vg import vg
+from datasets.clevr import clevr
 
 import numpy as np
 
@@ -58,6 +59,10 @@ for split in ['train', 'val', 'val1', 'val2', 'test']:
     devkit_path = 'data/imagenet/ILSVRC/devkit'
     data_path = 'data/imagenet/ILSVRC'
     __sets[name] = (lambda split=split, devkit_path=devkit_path, data_path=data_path: imagenet(split,devkit_path,data_path))
+
+# set up clevr
+__sets['clevr_train'] = (lambda split='train': clevr(split))
+__sets['clevr_val'] = (lambda split='val': clevr(split))
 
 def get_imdb(name):
   """Get an imdb (image database) by name."""

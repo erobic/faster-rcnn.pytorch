@@ -63,7 +63,7 @@ def _get_image_blob(roidb, scale_inds):
   im_scales = []
   for i in range(num_images):
     #im = cv2.imread(roidb[i]['image'])
-    im = imread(roidb[i]['image'])
+    im = imread(roidb[i]['image'], mode='RGB')
 
     if len(im.shape) == 2:
       im = im[:,:,np.newaxis]
