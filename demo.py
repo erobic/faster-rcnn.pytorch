@@ -142,7 +142,7 @@ def _get_image_blob(im):
 
 
 if __name__ == '__main__':
-
+    printed = False
     args = parse_args()
 
     print('Called with args:')
@@ -289,7 +289,16 @@ if __name__ == '__main__':
         rois, cls_prob, bbox_pred, \
         rpn_loss_cls, rpn_loss_box, \
         RCNN_loss_cls, RCNN_loss_bbox, \
-        rois_label = fasterRCNN(im_data, im_info, gt_boxes, num_boxes)
+        rois_label, pooled_feats = fasterRCNN(im_data, im_info, gt_boxes, num_boxes, return_feats=True)
+
+        if not printed:
+            print("rois: {}".format(rois.shape)) # 1 X 300 X 5
+            print("bbox_pred: {}".format(bbox_pred.shape)) # 1 X 300 X 384
+            print("pooled_Feats: {}".format(pooled_feats.shape)) # 300  x 2048
+
+        # print("rois: {}".format(rois))
+        # print("bbox_pred: {}".format(bbox_pred))
+        # print("pooled_Feats: {}".format(pooled_feats))
 
         scores = cls_prob.data
         boxes = rois.data[:, :, 1:5]
@@ -325,6 +334,7 @@ if __name__ == '__main__':
 
         pred_boxes /= im_scales[0]
 
+
         scores = scores.squeeze()
         pred_boxes = pred_boxes.squeeze()
         det_toc = time.time()
@@ -348,6 +358,9 @@ if __name__ == '__main__':
                 cls_dets = cls_dets[order]
                 keep = nms(cls_dets, cfg.TEST.NMS, force_cpu=not cfg.USE_GPU_NMS)
                 cls_dets = cls_dets[keep.view(-1).long()]
+                if not printed:
+                    print("cls_dets: {}".format(cls_dets.shape))
+                    print("cls_dets: {}".format(cls_dets))
                 if vis:
                     im2show = vis_detections(im2show, classes[j], cls_dets.cpu().numpy(), 0.5)
 
@@ -373,6 +386,10 @@ if __name__ == '__main__':
             print('Frame rate:', frame_rate)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
+
+        printed=True
     if webcam_num >= 0:
         cap.release()
         cv2.destroyAllWindows()
+
+

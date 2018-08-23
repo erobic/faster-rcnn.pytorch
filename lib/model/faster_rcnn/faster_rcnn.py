@@ -36,7 +36,7 @@ class _fasterRCNN(nn.Module):
         self.grid_size = cfg.POOLING_SIZE * 2 if cfg.CROP_RESIZE_WITH_MAX_POOL else cfg.POOLING_SIZE
         self.RCNN_roi_crop = _RoICrop()
 
-    def forward(self, im_data, im_info, gt_boxes, num_boxes):
+    def forward(self, im_data, im_info, gt_boxes, num_boxes, return_feats=False):
         batch_size = im_data.size(0)
 
         im_info = im_info.data
@@ -111,7 +111,11 @@ class _fasterRCNN(nn.Module):
         cls_prob = cls_prob.view(batch_size, rois.size(1), -1)
         bbox_pred = bbox_pred.view(batch_size, rois.size(1), -1)
 
-        return rois, cls_prob, bbox_pred, rpn_loss_cls, rpn_loss_bbox, RCNN_loss_cls, RCNN_loss_bbox, rois_label
+        if not return_feats:
+            return rois, cls_prob, bbox_pred, rpn_loss_cls, rpn_loss_bbox, RCNN_loss_cls, RCNN_loss_bbox, rois_label
+        else:
+            return rois, cls_prob, bbox_pred, rpn_loss_cls, rpn_loss_bbox, RCNN_loss_cls, RCNN_loss_bbox, rois_label, \
+                   pooled_feat
 
     def _init_weights(self):
         def normal_init(m, mean, stddev, truncated=False):
