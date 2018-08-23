@@ -29,6 +29,8 @@ class _RPN(nn.Module):
 
         # define bg/fg classifcation score layer
         self.nc_score_out = len(self.anchor_scales) * len(self.anchor_ratios) * 2 # 2(bg/fg) * 9 (anchors)
+        #print("nc_score_out: {}".format(self.nc_score_out))
+        #self.RPN_cls_score = nn.Conv2d(512, self.nc_score_out, 1, 1, 0)
         self.RPN_cls_score = nn.Conv2d(512, self.nc_score_out, 1, 1, 0)
 
         # define anchor box offset prediction layer

@@ -30,7 +30,6 @@ ROOT = '/hdd/robik'
 DATASET = 'CLEVR'
 DATA_ROOT = os.path.join(ROOT, DATASET)
 FASTER_RCNN_ROOT = os.path.join(DATA_ROOT, 'faster-rcnn')
-split = 'train'
 
 
 class clevr(imdb):
@@ -46,16 +45,15 @@ class clevr(imdb):
         self._classes = []
         self._class_to_ind = {}
         self._image_index = []
-        with open(os.path.join(self._data_path, '{}_scenes_with_bb.json'.format(split))) as f:
+        with open(os.path.join(self._data_path, '{}_scenes_with_bb.json'.format(image_set))) as f:
             self.scenes_with_bb = json.load(f)
             label_to_ix = self.scenes_with_bb['label_to_ix']
             ix_to_label = self.scenes_with_bb['ix_to_label']
             self._class_to_ind = ix_to_label
-            self._classes = label_to_ix.keys()
+            self._classes = list(label_to_ix.keys())
             self.annotations = self.scenes_with_bb['annotations']
             for ann in self.annotations:
                 self._image_index.append(ann['image_id'])
-
         self._image_ext = '.png'
         self._roidb_handler = self.gt_roidb
 
@@ -180,6 +178,8 @@ class clevr(imdb):
             filename = self._get_vg_results_file_template(output_dir).format(cls)
             with open(filename, 'wt') as f:
                 for im_ind, index in enumerate(self._image_index):
+                    if index >= np.array(all_boxes).shape[1]:
+                        break
                     dets = all_boxes[cls_ind][im_ind]
                     if dets == []:
                         continue
@@ -190,7 +190,7 @@ class clevr(imdb):
                                        dets[k, 0] + 1, dets[k, 1] + 1,
                                        dets[k, 2] + 1, dets[k, 3] + 1))
 
-    def _do_python_eval(self, output_dir, pickle=True):
+    def _do_python_eval(self, output_dir, do_pickle=True):
         # We re-use parts of the pascal voc python code for visual genome
         aps = []
         nposs = []
@@ -211,14 +211,17 @@ class clevr(imdb):
 
             # Determine per class detection thresholds that maximise f score
             if npos > 1:
-                f = np.nan_to_num((prec * rec) / (prec + rec))
-                thresh += [scores[np.argmax(f)]]
+                try:
+                    f = np.nan_to_num((prec * rec) / (prec + rec))
+                    thresh += [scores[np.argmax(f)]]
+                except:
+                    thresh += [0]
             else:
                 thresh += [0]
             aps += [ap]
             nposs += [float(npos)]
             print('AP for {} = {:.4f} (npos={:,})'.format(cls, ap, npos))
-            if pickle:
+            if do_pickle:
                 with open(os.path.join(output_dir, cls + '_pr.pkl'), 'wb') as f:
                     pickle.dump({'rec': rec, 'prec': prec, 'ap': ap,
                                  'scores': scores, 'npos': npos}, f)
