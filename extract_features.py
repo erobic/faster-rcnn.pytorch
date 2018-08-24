@@ -102,9 +102,6 @@ def parse_args():
     parser.add_argument('--load_dir', dest='load_dir',
                         help='directory to load models',
                         default="/hdd/robik/FasterRCNN/models")
-    parser.add_argument('--image_dir', dest='image_dir',
-                        help='directory to load images for demo',
-                        default="/hdd/robik/CLEVR/demo_images")
     parser.add_argument('--cuda', dest='cuda',
                         help='whether use CUDA',
                         action='store_true')
@@ -138,10 +135,16 @@ def parse_args():
 
     parser.add_argument('--root', required=True)
     parser.add_argument('--split', required=True)
+    parser.add_argument('--use_oracle_gt_boxes', action='store_true')
+    parser.add_argument('--num_images', default=None, type=int)
 
     args = parser.parse_args()
     args.dataroot = args.root + '/' + args.dataset
-    print("dataroot: {}".format(args.dataroot))
+    args.image_dir = os.path.join(args.dataroot, 'images', args.split)
+    # print("dataroot: {}".format(args.dataroot))
+    args.scenes_filepath = os.path.join(args.dataroot, 'faster-rcnn', '{}_scenes_with_bb.json'.format(args.split))
+    with open(args.scenes_filepath) as scenes_file:
+        args.scenes = json.load(scenes_file)
     return args
 
 
@@ -185,12 +188,36 @@ def _get_image_blob(im):
     return blob, np.array(im_scale_factors)
 
 
+def extract_imglist(scenes, num_images=None):
+    image_ids = []
+    image_files = []
+    counter = 0
+    for ann in scenes['annotations']:
+        if num_images is not None and counter > num_images:
+            break
+        image_ids.append(ann['image_id'])
+        image_files.append(ann['filename'])
+        counter += 1
+    return image_ids, image_files
+
+
+def extract_gt_rois(objects):
+    rois = []
+    for ix in range(num_fixed_boxes):
+        obj_ix = ix % len(objects)
+        obj = objects[obj_ix]
+        roi = [0, obj['xmin'], obj['ymin'], obj['xmax'], obj['ymax']]
+        rois.append(roi)
+    rois = np.array(rois).astype(np.float32)
+    return rois
+
+
 if __name__ == '__main__':
     printed = False
     args = parse_args()
 
-    print('Called with args:')
-    print(args)
+    # print('Called with args:')
+    # print(args)
 
     if args.cfg_file is not None:
         cfg_from_file(args.cfg_file)
@@ -278,15 +305,8 @@ if __name__ == '__main__':
     thresh = 0.05
     vis = True
 
-    webcam_num = args.webcam_num
-    print("vis: {} webcam_num: {}".format(vis, webcam_num))
-    # Set up webcam or get image directories
-    if webcam_num >= 0:
-        cap = cv2.VideoCapture(webcam_num)
-        num_images = 0
-    else:
-        imglist = os.listdir(args.image_dir)
-        num_images = len(imglist)
+    image_ids, image_files = extract_imglist(args.scenes, args.num_images)
+    num_images = len(image_ids)
 
     print('Loaded Photo: {} images.'.format(num_images))
 
@@ -306,22 +326,14 @@ if __name__ == '__main__':
     for image_ix in range(num_images):
         total_tic = time.time()
 
-        # Get image from the webcam
-        if webcam_num >= 0:
-            if not cap.isOpened():
-                raise RuntimeError("Webcam could not open. Please check connection.")
-            ret, frame = cap.read()
-            im_in = np.array(frame)
-        # Load the demo image
-        else:
-            im_file = os.path.join(args.image_dir, imglist[image_ix])
-            img_id = filename_to_id(imglist[image_ix])
-            if not printed:
-                print("im_id: {}".format(img_id))
-            # im = cv2.imread(im_file)
-            im_in = np.array(imread(im_file, mode='RGB'))
-            if not printed:
-                print("im shape: {}".format(im_in.shape))
+        im_file = os.path.join(args.image_dir, image_files[image_ix])
+        img_id = image_ids[image_ix]
+        if not printed:
+            print("im_id: {}".format(img_id))
+        # im = cv2.imread(im_file)
+        im_in = np.array(imread(im_file, mode='RGB'))
+        if not printed:
+            print("im shape: {}".format(im_in.shape))
         height, width = im_in.shape[0], im_in.shape[1]
         if len(im_in.shape) == 2:
             im_in = im_in[:, :, np.newaxis]
@@ -345,11 +357,13 @@ if __name__ == '__main__':
 
         # pdb.set_trace()
         det_tic = time.time()
-
+        oracle_rois = extract_gt_rois(args.scenes['annotations'][image_ix]['objects'])
+        if not printed:
+            print("oracle_rois.shape: {}".format(oracle_rois.shape))
         rois, cls_prob, bbox_pred, \
         rpn_loss_cls, rpn_loss_box, \
         RCNN_loss_cls, RCNN_loss_bbox, \
-        rois_label, pooled_feats = fasterRCNN(im_data, im_info, gt_boxes, num_boxes, return_feats=True)
+        rois_label, pooled_feats = fasterRCNN(im_data, im_info, gt_boxes, num_boxes, return_feats=True, oracle_rois=oracle_rois)
 
         if not printed:
             print("rois: {}".format(rois.shape))  # 1 X num objects X 5
