@@ -37,6 +37,7 @@ from model.faster_rcnn.resnet import resnet
 import pdb
 import json
 import h5py
+from tqdm import tqdm
 
 # format: xmin, ymin, xmax, ymax
 try:
@@ -102,9 +103,6 @@ def parse_args():
     parser.add_argument('--load_dir', dest='load_dir',
                         help='directory to load models',
                         default="/hdd/robik/FasterRCNN/models")
-    parser.add_argument('--image_dir', dest='image_dir',
-                        help='directory to load images for demo',
-                        default="/hdd/robik/CLEVR/demo_images")
     parser.add_argument('--cuda', dest='cuda',
                         help='whether use CUDA',
                         action='store_true')
@@ -138,10 +136,13 @@ def parse_args():
 
     parser.add_argument('--root', required=True)
     parser.add_argument('--split', required=True)
-
+    parser.add_argument('--image_dir', required=False, default=None)
+    parser.add_argument('--image_limit', required=False, default=None, type=int)
     args = parser.parse_args()
     args.dataroot = args.root + '/' + args.dataset
-    print("dataroot: {}".format(args.dataroot))
+    if args.image_dir is None:
+        args.image_dir = args.dataroot + '/images/' + args.split
+    print("image_dir: {}".format(args.image_dir))
     return args
 
 
@@ -285,7 +286,11 @@ if __name__ == '__main__':
         cap = cv2.VideoCapture(webcam_num)
         num_images = 0
     else:
-        imglist = os.listdir(args.image_dir)
+        imglist = sorted(os.listdir(args.image_dir))
+        num_images = len(imglist)
+
+    if args.image_limit is not None:
+        imglist = imglist[0:args.image_limit]
         num_images = len(imglist)
 
     print('Loaded Photo: {} images.'.format(num_images))
@@ -303,7 +308,7 @@ if __name__ == '__main__':
     counter = 0
     print("num_images: {}".format(num_images))
 
-    for image_ix in range(num_images):
+    for image_ix in tqdm(iter(range(num_images))):
         total_tic = time.time()
 
         # Get image from the webcam
@@ -417,7 +422,6 @@ if __name__ == '__main__':
             print("pred_boxes.shape: {}".format(pred_boxes.shape))
             print('returned pooled_feats.shape: {}'.format(pooled_feats.data.cpu().numpy().shape))
 
-        print("counter: {}".format(counter))
         h5_img_features[counter, :, :] = pooled_feats.data.cpu().numpy().astype(np.float32)
 
         widths = pred_boxes[:, 2] - pred_boxes[:, 0]
