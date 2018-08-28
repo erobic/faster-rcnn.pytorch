@@ -204,9 +204,13 @@ def extract_imglist(scenes, num_images=None):
 def extract_gt_rois(objects):
     rois = []
     for ix in range(num_fixed_boxes):
-        obj_ix = ix % len(objects)
-        obj = objects[obj_ix]
-        roi = [0, obj['xmin'], obj['ymin'], obj['xmax'], obj['ymax']]
+        if ix < len(objects):
+            obj = objects[ix]
+            #print("obj[xm,ax]: {}".format(obj['xmax']))
+            roi = [0, obj['xmin'], obj['ymin'], obj['xmax'], obj['ymax']]
+        else:
+            # pad with global context
+            roi = [0, 0, 0, 480, 320] # TODO: Do not use fixed dims for other datasets
         rois.append(roi)
     rois = np.array(rois).astype(np.float32)
     return rois
@@ -314,7 +318,7 @@ if __name__ == '__main__':
     if args.use_oracle_gt_boxes:
         feat_dir = 'oracle-faster-rcnn'
     else:
-        feat_dir = 'faster-rcnn'
+        feat_dir = 'pretrained-faster-rcnn'
     h5_filename = args.dataroot + '/{}/{}.hdf5'.format(feat_dir, args.split)
     h5_file = h5py.File(h5_filename, "w")
     indices = {'image_id_to_ix': {}, 'image_ix_to_id': {}}
@@ -361,13 +365,17 @@ if __name__ == '__main__':
 
         # pdb.set_trace()
         det_tic = time.time()
-        oracle_rois = extract_gt_rois(args.scenes['annotations'][image_ix]['objects'])
-        if not printed:
-            print("oracle_rois.shape: {}".format(oracle_rois.shape))
+        if args.use_oracle_gt_boxes:
+            oracle_rois = extract_gt_rois(args.scenes['annotations'][image_ix]['objects'])
+            if not printed:
+                print("oracle_rois.shape: {}".format(oracle_rois.shape))
+        else:
+            oracle_rois = None
         rois, cls_prob, bbox_pred, \
         rpn_loss_cls, rpn_loss_box, \
         RCNN_loss_cls, RCNN_loss_bbox, \
-        rois_label, pooled_feats = fasterRCNN(im_data, im_info, gt_boxes, num_boxes, return_feats=True, oracle_rois=oracle_rois)
+        rois_label, pooled_feats = fasterRCNN(im_data, im_info, gt_boxes, num_boxes, return_feats=True,
+                                              oracle_rois=oracle_rois)
 
         if not printed:
             print("rois: {}".format(rois.shape))  # 1 X num objects X 5

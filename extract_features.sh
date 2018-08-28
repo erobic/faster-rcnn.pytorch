@@ -1,20 +1,37 @@
 #!/usr/bin/env bash
+set -e
+
 source activate vqa
 ROOT=/hdd/robik
 DATASET=CLEVR
 DATA_ROOT=${ROOT}/${DATASET}
 
-SPLIT=val
-#python -u extract_features.py --dataset $DATASET \
-#--image_dir $DATA_ROOT/images/${SPLIT}/
-
-python -u extract_features.py --dataset $DATASET \
+SPLIT=train
+CUDA_VISIBLE_DEVICES=1 python -u extract_features.py --dataset $DATASET \
 --root $ROOT \
 --split $SPLIT \
 --net res101 \
 --checksession 1 \
---checkepoch 3 \
+--checkepoch 11 \
 --checkpoint 34999 \
---cuda \
---use_oracle_gt_boxes \
---num_images 10
+--cuda
+
+SPLIT=val
+CUDA_VISIBLE_DEVICES=2 python -u extract_features.py --dataset $DATASET \
+--root $ROOT \
+--split $SPLIT \
+--net res101 \
+--checksession 1 \
+--checkepoch 11 \
+--checkpoint 34999 \
+--cuda
+
+SPLIT=test
+CUDA_VISIBLE_DEVICES=2 python -u extract_features.py --dataset $DATASET \
+--root $ROOT \
+--split $SPLIT \
+--net res101 \
+--checksession 1 \
+--checkepoch 11 \
+--checkpoint 34999 \
+--cuda

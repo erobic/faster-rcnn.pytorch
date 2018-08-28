@@ -232,7 +232,7 @@ if __name__ == '__main__':
 
     start = time.time()
     max_per_image = 100
-    thresh = 0.05
+    thresh = 0.02
     vis = True
 
     webcam_num = args.webcam_num
@@ -356,11 +356,11 @@ if __name__ == '__main__':
                 cls_dets = torch.cat((cls_boxes, cls_scores.unsqueeze(1)), 1)
                 # cls_dets = torch.cat((cls_boxes, cls_scores), 1)
                 cls_dets = cls_dets[order]
-                keep = nms(cls_dets, cfg.TEST.NMS, force_cpu=not cfg.USE_GPU_NMS)
-                cls_dets = cls_dets[keep.view(-1).long()]
-                if not printed:
-                    print("cls_dets: {}".format(cls_dets.shape))
-                    print("cls_dets: {}".format(cls_dets))
+                # keep = nms(cls_dets, cfg.TEST.NMS, force_cpu=not cfg.USE_GPU_NMS)
+                # cls_dets = cls_dets[keep.view(-1).long()]
+                # if not printed:
+                #     print("cls_dets: {}".format(cls_dets.shape))
+                #     print("cls_dets: {}".format(cls_dets))
                 if vis:
                     im2show = vis_detections(im2show, classes[j], cls_dets.cpu().numpy(), 0.5)
 
