@@ -311,7 +311,11 @@ if __name__ == '__main__':
     print('Loaded Photo: {} images.'.format(num_images))
 
     ### Init h5 file
-    h5_filename = args.dataroot + '/faster-rcnn/{}.hdf5'.format(args.split)
+    if args.use_oracle_gt_boxes:
+        feat_dir = 'oracle-faster-rcnn'
+    else:
+        feat_dir = 'faster-rcnn'
+    h5_filename = args.dataroot + '/{}/{}.hdf5'.format(feat_dir, args.split)
     h5_file = h5py.File(h5_filename, "w")
     indices = {'image_id_to_ix': {}, 'image_ix_to_id': {}}
 
@@ -469,5 +473,5 @@ if __name__ == '__main__':
         printed = True
 
     h5_file.close()
-    with open(os.path.join(args.dataroot, 'faster-rcnn', '{}_ids_map.json'.format(args.split)), 'w') as f:
+    with open(os.path.join(args.dataroot, feat_dir, '{}_ids_map.json'.format(args.split)), 'w') as f:
         json.dump(indices, f)

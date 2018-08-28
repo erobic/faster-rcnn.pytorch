@@ -63,9 +63,6 @@ def parse_args():
     parser.add_argument('--load_dir', dest='load_dir',
                         help='directory to load models',
                         default="/hdd/robik/FasterRCNN/models")
-    parser.add_argument('--image_dir', dest='image_dir',
-                        help='directory to load images for demo',
-                        default="/hdd/robik/CLEVR/demo_images")
     parser.add_argument('--cuda', dest='cuda',
                         help='whether use CUDA',
                         action='store_true')
@@ -96,6 +93,8 @@ def parse_args():
     parser.add_argument('--webcam_num', dest='webcam_num',
                         help='webcam ID number',
                         default=-1, type=int)
+    parser.add_argument('--out_dir')
+    parser.add_argument('--image_dir')
 
     args = parser.parse_args()
     return args
@@ -162,7 +161,8 @@ if __name__ == '__main__':
     # train set
     # -- Note: Use validation set and disable the flipped to enable faster loading.
 
-    input_dir = args.load_dir + "/" + args.net + "/" + args.dataset
+    input_dir = args.load_dir + "/" + args.net + "/" + args.dataset.lower()
+
     if not os.path.exists(input_dir):
         raise Exception('There is no input directory for loading network from ' + input_dir)
     load_name = os.path.join(input_dir,
@@ -375,7 +375,7 @@ if __name__ == '__main__':
         if vis and webcam_num == -1:
             # cv2.imshow('test', im2show)
             # cv2.waitKey(0)
-            result_path = os.path.join(args.image_dir, imglist[num_images][:-4] + "_det.jpg")
+            result_path = os.path.join(args.out_dir, imglist[num_images][:-4] + "_det.jpg")
             cv2.imwrite(result_path, im2show)
         else:
             im2showRGB = cv2.cvtColor(im2show, cv2.COLOR_BGR2RGB)
