@@ -5,14 +5,15 @@ source activate vqa
 ROOT=/hdd/robik
 DATASET=CLEVR
 
+FASTER_RCNN_DIR=$ROOT/FasterRCNN
 
-CUDA_LAUNCH_BLOCKING=1 CUDA_VISIBLE_DEVICES=2 python extract_features.py --net res101 \
+CUDA_VISIBLE_DEVICES=1 python -u demo.py \
+--dataset $DATASET \
+--net res101 \
 --checksession 1 \
---checkepoch 2 \
+--checkepoch 11 \
 --checkpoint 34999 \
 --cuda \
---load_dir /hdd/robik/FasterRCNN/models \
---dataset $DATASET \
---image_dir /hdd/robik/CLEVR/demo_images \
---root $ROOT \
---split test
+--load_dir $FASTER_RCNN_DIR/models \
+--image_dir $FASTER_RCNN_DIR/demo_images \
+--out_dir $FASTER_RCNN_DIR/out_demo_images

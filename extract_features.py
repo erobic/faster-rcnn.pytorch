@@ -140,14 +140,21 @@ def parse_args():
     parser.add_argument('--image_dir', required=False, default=None)
     parser.add_argument('--image_limit', required=False, default=None, type=int)
     parser.add_argument('--visualize_only', action='store_true')
+    parser.add_argument('--use_oracle_gt_boxes', action='store_true')
+    parser.add_argument('--num_images', default=None, type=int)
+    parser.add_argument('--visualize_subdir', default='visualize_faster_rcnn')
+
     args = parser.parse_args()
     args.dataroot = args.root + '/' + args.dataset
     if args.image_dir is None:
         args.image_dir = args.dataroot + '/images/' + args.split
     print("image_dir: {}".format(args.image_dir))
-    args.visualize_dir = args.dataroot + '/' + 'visualize_faster_rcnn'
+    args.visualize_dir = args.dataroot + '/' + args.visualize_subdir
     if not os.path.exists(args.visualize_dir):
         os.mkdir(args.visualize_dir)
+    args.scenes_filepath = os.path.join(args.dataroot, 'faster-rcnn', '{}_scenes_with_bb.json'.format(args.split))
+    with open(args.scenes_filepath) as scenes_file:
+        args.scenes = json.load(scenes_file)
     return args
 
 
@@ -201,12 +208,39 @@ def draw_preds(im2show, boxes, classes, score_class_ixs, scores):
                     0.6, (0, 0, 255), thickness=1)
     return im2show
 
+def extract_imglist(scenes, num_images=None):
+    image_ids = []
+    image_files = []
+    counter = 0
+    for ann in scenes['annotations']:
+        if num_images is not None and counter > num_images:
+            break
+        image_ids.append(ann['image_id'])
+        image_files.append(ann['filename'])
+        counter += 1
+    return image_ids, image_files
+
+
+def extract_gt_rois(objects):
+    rois = []
+    for ix in range(num_fixed_boxes):
+        if ix < len(objects):
+            obj = objects[ix]
+            #print("obj[xm,ax]: {}".format(obj['xmax']))
+            roi = [0, obj['xmin'], obj['ymin'], obj['xmax'], obj['ymax']]
+        else:
+            # pad with global context
+            roi = [0, 0, 0, 480, 320] # TODO: Do not use fixed dims for other datasets
+        rois.append(roi)
+    rois = np.array(rois).astype(np.float32)
+    return rois
+
 if __name__ == '__main__':
     printed = False
     args = parse_args()
 
-    print('Called with args:')
-    print(args)
+    # print('Called with args:')
+    # print(args)
 
     if args.cfg_file is not None:
         cfg_from_file(args.cfg_file)
@@ -307,11 +341,19 @@ if __name__ == '__main__':
         imglist = imglist[0:args.image_limit]
         num_images = len(imglist)
 
+    image_ids, image_files = extract_imglist(args.scenes, num_images)
+    num_images = len(image_ids)
+
     print('Loaded Photo: {} images.'.format(num_images))
 
     ### Init h5 file
     if not args.visualize_only:
-        h5_filename = args.dataroot + '/afaster-rcnn/{}.hdf5'.format(args.split)
+        if args.use_oracle_gt_boxes:
+            feat_dir = 'oracle-faster-rcnn'
+        else:
+            feat_dir = 'faster-rcnn'
+
+        h5_filename = args.dataroot + '/{}/{}.hdf5'.format(feat_dir, args.split)
         h5_file = h5py.File(h5_filename, "w")
         h5_img_features = h5_file.create_dataset(
             'image_features', (num_images, num_fixed_boxes, feature_length), 'f')
@@ -319,28 +361,21 @@ if __name__ == '__main__':
             'spatial_features', (num_images, num_fixed_boxes, 6), 'f')
         indices = {'image_id_to_ix': {}, 'image_ix_to_id': {}}
 
+
     counter = 0
     print("num_images: {}".format(num_images))
 
     for image_ix in tqdm(iter(range(num_images))):
         total_tic = time.time()
 
-        # Get image from the webcam
-        if webcam_num >= 0:
-            if not cap.isOpened():
-                raise RuntimeError("Webcam could not open. Please check connection.")
-            ret, frame = cap.read()
-            im_in = np.array(frame)
-        # Load the demo image
-        else:
-            im_file = os.path.join(args.image_dir, imglist[image_ix])
-            img_id = filename_to_id(imglist[image_ix])
-            if not printed:
-                print("im_id: {}".format(img_id))
-            # im = cv2.imread(im_file)
-            im_in = np.array(imread(im_file, mode='RGB'))
-            if not printed:
-                print("im shape: {}".format(im_in.shape))
+        im_file = os.path.join(args.image_dir, image_files[image_ix])
+        img_id = image_ids[image_ix]
+        if not printed:
+            print("im_id: {}".format(img_id))
+        # im = cv2.imread(im_file)
+        im_in = np.array(imread(im_file, mode='RGB'))
+        if not printed:
+            print("im shape: {}".format(im_in.shape))
         height, width = im_in.shape[0], im_in.shape[1]
         if len(im_in.shape) == 2:
             im_in = im_in[:, :, np.newaxis]
@@ -349,8 +384,11 @@ if __name__ == '__main__':
         im = im_in[:, :, ::-1]
 
         blobs, im_scales = _get_image_blob(im)
+        if not printed:
+            print("im_scales {}".format(im_scales))
         assert len(im_scales) == 1, "Only single-image batch implemented"
         im_blob = blobs
+
         im_info_np = np.array([[im_blob.shape[1], im_blob.shape[2], im_scales[0]]], dtype=np.float32)
 
         im_data_pt = torch.from_numpy(im_blob)
@@ -364,11 +402,17 @@ if __name__ == '__main__':
 
         # pdb.set_trace()
         det_tic = time.time()
-
+        if args.use_oracle_gt_boxes:
+            oracle_rois = extract_gt_rois(args.scenes['annotations'][image_ix]['objects']) * im_scales[0]
+            if not printed:
+                print("oracle_rois.shape: {}".format(oracle_rois.shape))
+        else:
+            oracle_rois = None
         rois, cls_prob, bbox_pred, \
         rpn_loss_cls, rpn_loss_box, \
         RCNN_loss_cls, RCNN_loss_bbox, \
-        rois_label, pooled_feats = fasterRCNN(im_data, im_info, gt_boxes, num_boxes, return_feats=True)
+        rois_label, pooled_feats = fasterRCNN(im_data, im_info, gt_boxes, num_boxes, return_feats=True,
+                                              oracle_rois=oracle_rois)
 
         if not printed:
             print("rois: {}".format(rois.shape))  # 1 X num objects X 5
@@ -470,9 +514,8 @@ if __name__ == '__main__':
 
             indices['image_id_to_ix'][img_id] = counter
             indices['image_ix_to_id'][counter] = img_id
-            h5_file.close()
 
-            with open(os.path.join(args.dataroot, 'afaster-rcnn', '{}_ids_map.json'.format(args.split)), 'w') as f:
+            with open(os.path.join(args.dataroot, 'faster-rcnn', '{}_ids_map.json'.format(args.split)), 'w') as f:
                 json.dump(indices, f)
         else:
             if not printed:
@@ -487,5 +530,8 @@ if __name__ == '__main__':
             # filtered_pred_boxes.append(pred_box[score_class_ixs[pred_box_ix]].cpu().numpy().tolist())
             #plt.show()
 
+
         counter += 1
         printed = True
+    if not args.visualize_only:
+        h5_file.close()

@@ -16,5 +16,6 @@ CUDA_VISIBLE_DEVICES=0 python -u extract_features.py --dataset $DATASET \
 --checkpoint 34999 \
 --cuda \
 --visualize_only \
---image_limit 20 \
---visualize_subdir visualize_faster_rcnn
+--image_limit 2 \
+--visualize_subdir visualize_oracle \
+--use_oracle_gt_boxes

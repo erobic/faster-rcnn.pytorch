@@ -19,7 +19,7 @@ from model.utils.net_utils import _smooth_l1_loss, _crop_pool_layer, _affine_gri
 
 class _fasterRCNN(nn.Module):
     """ faster RCNN """
-    def __init__(self, classes, class_agnostic):
+    def __init__(self, classes, class_agnostic, ):
         super(_fasterRCNN, self).__init__()
         self.classes = classes
         self.n_classes = len(classes)
@@ -38,7 +38,19 @@ class _fasterRCNN(nn.Module):
         self.RCNN_roi_crop = _RoICrop()
         self.printed = False
 
-    def forward(self, im_data, im_info, gt_boxes, num_boxes, return_feats=False):
+    def forward(self, im_data, im_info, gt_boxes, num_boxes, return_feats=False, oracle_rois=None):
+        """
+
+        :param im_data:
+        :param im_info:
+        :param gt_boxes:
+        :param num_boxes:
+        :param return_feats:
+        :param oracle_rois: Use GT ROIs for feature extraction (NOT SUPPORTED DURING TRAINING!!!)
+        :return:
+        """
+        if self.training and oracle_rois is not None:
+            raise NotImplementedError("We do not support using oracle ROIs during training phase.")
         batch_size = im_data.size(0)
 
         im_info = im_info.data
@@ -53,7 +65,8 @@ class _fasterRCNN(nn.Module):
         # feed base feature map tp RPN to obtain rois
         rois, rpn_loss_cls, rpn_loss_bbox = self.RCNN_rpn(base_feat, im_info, gt_boxes, num_boxes)
         if not self.printed:
-            print("rois: {}".format(rois.shape))
+            print("type of rois: {}".format(type(rois)))
+            print("rois: {}".format(rois.shape)) # 1 X num objects X 5
 
         # if it is training phrase, then use ground trubut bboxes for refining
         if self.training:
@@ -72,7 +85,18 @@ class _fasterRCNN(nn.Module):
             rpn_loss_cls = 0
             rpn_loss_bbox = 0
 
-        rois = Variable(rois)
+        if oracle_rois is not None:
+            rois = torch.from_numpy(oracle_rois).float()
+            rois = torch.unsqueeze(rois, dim=0)
+
+
+        if not self.printed:
+            print("rois.Variable.shape: {}".format(rois.shape))
+            print("rois: {}".format(rois))
+
+        rois = Variable(rois).cuda()
+
+
         # do roi pooling based on predicted rois
 
         if cfg.POOLING_MODE == 'crop':
@@ -96,7 +120,6 @@ class _fasterRCNN(nn.Module):
 
         # compute bbox offset
         bbox_pred = self.RCNN_bbox_pred(pooled_feat)
-        print("bbox_pred: {}".format(bbox_pred.shape))
 
         if self.training and not self.class_agnostic:
             # select the corresponding columns according to roi labels

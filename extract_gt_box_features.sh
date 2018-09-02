@@ -14,7 +14,9 @@ CUDA_VISIBLE_DEVICES=2 python -u extract_features.py --dataset $DATASET \
 --checksession 1 \
 --checkepoch 11 \
 --checkpoint 34999 \
---cuda
+--cuda \
+--use_oracle_gt_boxes \
+--bs 16
 
 SPLIT=val
 CUDA_VISIBLE_DEVICES=2 python -u extract_features.py --dataset $DATASET \
@@ -24,14 +26,6 @@ CUDA_VISIBLE_DEVICES=2 python -u extract_features.py --dataset $DATASET \
 --checksession 1 \
 --checkepoch 11 \
 --checkpoint 34999 \
---cuda
-
-SPLIT=test
-CUDA_VISIBLE_DEVICES=2 python -u extract_features.py --dataset $DATASET \
---root $ROOT \
---split $SPLIT \
---net res101 \
---checksession 1 \
---checkepoch 11 \
---checkpoint 34999 \
---cuda
+--cuda \
+--use_oracle_gt_boxes \
+--bs 16
