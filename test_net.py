@@ -126,7 +126,7 @@ if __name__ == '__main__':
         args.imdb_name = "vg_150-50-50_minitrain"
         args.imdbval_name = "vg_150-50-50_minival"
         args.set_cfgs = ['ANCHOR_SCALES', '[4, 8, 16, 32]', 'ANCHOR_RATIOS', '[0.5,1,2]']
-    elif args.dataset == "clevr":
+    elif args.dataset.lower() == "clevr":
         args.imdb_name = "clevr_train"
         args.imdbval_name = "clevr_val"
         args.set_cfgs = ['ANCHOR_SCALES', '[4, 8, 16, 32]', 'ANCHOR_RATIOS', '[0.5,1,2]', 'MAX_NUM_GT_BOXES', '50']
@@ -147,7 +147,7 @@ if __name__ == '__main__':
 
     print('{:d} roidb entries'.format(len(roidb)))
 
-    input_dir = args.load_dir + "/" + args.net + "/" + args.dataset
+    input_dir = args.load_dir + "/" + args.net + "/" + args.dataset.lower()
     if not os.path.exists(input_dir):
         raise Exception('There is no input directory for loading network from ' + input_dir)
     load_name = os.path.join(input_dir,
