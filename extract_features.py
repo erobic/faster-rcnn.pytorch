@@ -9,17 +9,13 @@ from __future__ import print_function
 
 import _init_paths
 import os
-import sys
 import numpy as np
 import argparse
 import pprint
-import pdb
 import time
 import cv2
 import torch
 from torch.autograd import Variable
-import torch.nn as nn
-import torch.optim as optim
 
 import torchvision.transforms as transforms
 import torchvision.datasets as dset
@@ -30,7 +26,6 @@ from model.utils.config import cfg, cfg_from_file, cfg_from_list, get_output_dir
 from model.rpn.bbox_transform import clip_boxes
 from model.nms.nms_wrapper import nms
 from model.rpn.bbox_transform import bbox_transform_inv
-from model.utils.net_utils import save_net, load_net, vis_detections
 from model.utils.blob import im_list_to_blob
 from model.faster_rcnn.vgg16 import vgg16
 from model.faster_rcnn.resnet import resnet
@@ -143,6 +138,7 @@ def parse_args():
     parser.add_argument('--use_oracle_gt_boxes', action='store_true')
     parser.add_argument('--num_images', default=None, type=int)
     parser.add_argument('--visualize_subdir', default='visualize_faster_rcnn')
+    parser.add_argument('--load_subdir', required=False)
 
     args = parser.parse_args()
     args.dataroot = args.root + '/' + args.dataset
@@ -152,9 +148,13 @@ def parse_args():
     args.visualize_dir = args.dataroot + '/' + args.visualize_subdir
     if not os.path.exists(args.visualize_dir):
         os.mkdir(args.visualize_dir)
+
     args.scenes_filepath = os.path.join(args.dataroot, 'faster-rcnn', '{}_scenes_with_bb.json'.format(args.split))
-    with open(args.scenes_filepath) as scenes_file:
-        args.scenes = json.load(scenes_file)
+    if os.path.exists(args.scenes_filepath):
+        with open(args.scenes_filepath) as scenes_file:
+            args.scenes = json.load(scenes_file)
+    if args.load_subdir is None:
+        args.load_subdir = args.dataset
     return args
 
 
@@ -208,7 +208,7 @@ def draw_preds(im2show, boxes, classes, score_class_ixs, scores):
                     0.6, (0, 0, 255), thickness=1)
     return im2show
 
-def extract_imglist(scenes, num_images=None):
+def extract_imglist_from_scenes(scenes, num_images=None):
     image_ids = []
     image_files = []
     counter = 0
@@ -218,6 +218,19 @@ def extract_imglist(scenes, num_images=None):
         image_ids.append(ann['image_id'])
         image_files.append(ann['filename'])
         counter += 1
+    return image_ids, image_files
+
+
+def extract_imglist(fn_list, num_images=None):
+    image_ids, image_files = [], []
+    counter = 0
+    for fn in fn_list:
+        if num_images is not None and counter > num_images:
+            break
+        image_id = filename_to_id(fn)
+        image_ids.append(image_id)
+        image_files.append(fn)
+        counter +=1
     return image_ids, image_files
 
 
@@ -256,7 +269,8 @@ if __name__ == '__main__':
     # train set
     # -- Note: Use validation set and disable the flipped to enable faster loading.
 
-    input_dir = args.load_dir + "/" + args.net + "/" + args.dataset.lower()
+    input_dir = args.load_dir + "/" + args.net + "/" + args.load_subdir.lower()
+
     if not os.path.exists(input_dir):
         raise Exception('There is no input directory for loading network from ' + input_dir)
     load_name = os.path.join(input_dir,
@@ -340,8 +354,10 @@ if __name__ == '__main__':
     if args.image_limit is not None:
         imglist = imglist[0:args.image_limit]
         num_images = len(imglist)
+        print("num_images {}".format(num_images))
 
-    image_ids, image_files = extract_imglist(args.scenes, num_images)
+    #image_ids, image_files = extract_imglist(args.scenes, num_images)
+    image_ids, image_files = extract_imglist(imglist, args.num_images)
     num_images = len(image_ids)
 
     print('Loaded Photo: {} images.'.format(num_images))

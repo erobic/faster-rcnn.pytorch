@@ -3,6 +3,8 @@
 # Licensed under The MIT License [see LICENSE for details]
 # Written by Jiasen Lu, Jianwei Yang, based on code from Ross Girshick
 # --------------------------------------------------------
+# Modified demo.py to generate predictions.
+# Could make the main block even longer by putting parse arg logic inside the main block
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -50,7 +52,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Train a Fast R-CNN network')
     parser.add_argument('--dataset', dest='dataset',
                         help='training dataset',
-                        default='pascal_voc', type=str)
+                        default='CLEVR', type=str)
     parser.add_argument('--cfg', dest='cfg_file',
                         help='optional config file',
                         default='cfgs/res101.yml', type=str)
@@ -63,7 +65,9 @@ def parse_args():
     parser.add_argument('--load_dir', dest='load_dir',
                         help='directory to load models',
                         default="/hdd/robik/FasterRCNN/models")
-    parser.add_argument('--load_subdir', required=False, help="uses dataset.lower() if not provided")
+    parser.add_argument('--image_dir', dest='image_dir',
+                        help='directory to load images for demo',
+                        default="images")
     parser.add_argument('--cuda', dest='cuda',
                         help='whether use CUDA',
                         action='store_true')
@@ -71,7 +75,7 @@ def parse_args():
                         help='whether use multiple GPUs',
                         action='store_true')
     parser.add_argument('--cag', dest='class_agnostic',
-                        help='whether perform class_agnostic bbox regression',
+                        help='perform class_agnostic bbox regression',
                         action='store_true')
     parser.add_argument('--parallel_type', dest='parallel_type',
                         help='which part of model to parallel, 0: all, 1: model before roi pooling',
@@ -94,8 +98,7 @@ def parse_args():
     parser.add_argument('--webcam_num', dest='webcam_num',
                         help='webcam ID number',
                         default=-1, type=int)
-    parser.add_argument('--out_dir')
-    parser.add_argument('--image_dir')
+    parser.add_argument('--num_boxes', default=20, type=int)
 
     args = parser.parse_args()
     return args
@@ -141,9 +144,14 @@ def _get_image_blob(im):
     return blob, np.array(im_scale_factors)
 
 
+def get_filename_id_list():
+    pass
+
+
 if __name__ == '__main__':
-    printed = False
+
     args = parse_args()
+    img_list = get_filename_id_list()
 
     print('Called with args:')
     print(args)
@@ -162,31 +170,24 @@ if __name__ == '__main__':
     # train set
     # -- Note: Use validation set and disable the flipped to enable faster loading.
 
-    input_dir = args.load_dir + "/" + args.net + "/"# + args.dataset.lower()
-    if args.load_subdir is None:
-        input_dir += args.dataset.lower()
-    else:
-        input_dir += args.load_subdir
-
+    input_dir = args.load_dir + "/" + args.net + "/" + args.dataset
     if not os.path.exists(input_dir):
         raise Exception('There is no input directory for loading network from ' + input_dir)
     load_name = os.path.join(input_dir,
                              'faster_rcnn_{}_{}_{}.pth'.format(args.checksession, args.checkepoch, args.checkpoint))
 
-    with open('/hdd/robik/CLEVR/faster-rcnn/objects_count.json') as ovf:
-        classes = list(json.load(ovf).keys())
-        print("classes: {}".format(classes))
-
+    with open('/hdd/robik/CLEVR/faster-rcnn/objects_vocab.json') as ovf:
+        pascal_classes = np.asarray(json.load(ovf).keys())
 
     # initilize the network here.
     if args.net == 'vgg16':
-        fasterRCNN = vgg16(classes, pretrained=False, class_agnostic=args.class_agnostic)
+        fasterRCNN = vgg16(pascal_classes, pretrained=False, class_agnostic=args.class_agnostic)
     elif args.net == 'res101':
-        fasterRCNN = resnet(classes, 101, pretrained=False, class_agnostic=args.class_agnostic)
+        fasterRCNN = resnet(pascal_classes, 101, pretrained=False, class_agnostic=args.class_agnostic)
     elif args.net == 'res50':
-        fasterRCNN = resnet(classes, 50, pretrained=False, class_agnostic=args.class_agnostic)
+        fasterRCNN = resnet(pascal_classes, 50, pretrained=False, class_agnostic=args.class_agnostic)
     elif args.net == 'res152':
-        fasterRCNN = resnet(classes, 152, pretrained=False, class_agnostic=args.class_agnostic)
+        fasterRCNN = resnet(pascal_classes, 152, pretrained=False, class_agnostic=args.class_agnostic)
     else:
         print("network is not defined")
         pdb.set_trace()
@@ -236,41 +237,21 @@ if __name__ == '__main__':
     fasterRCNN.eval()
 
     start = time.time()
-    max_per_image = 100
-    thresh = 0.02
+    max_per_image = args.num_boxes
+    thresh = 0.05
     vis = True
 
-    webcam_num = args.webcam_num
-    print("vis: {} webcam_num: {}".format(vis, webcam_num))
-    # Set up webcam or get image directories
-    if webcam_num >= 0:
-        cap = cv2.VideoCapture(webcam_num)
-        num_images = 0
-    else:
-        imglist = os.listdir(args.image_dir)
-        num_images = len(imglist)
+    num_images = len(img_list)
 
-    print('Loaded Photo: {} images.'.format(num_images))
-
-    while (num_images >= 0):
+    for im_file, im_id in img_list:
         total_tic = time.time()
-        if webcam_num == -1:
-            num_images -= 1
+        im_in = np.array(imread(im_file))
 
-        # Get image from the webcam
-        if webcam_num >= 0:
-            if not cap.isOpened():
-                raise RuntimeError("Webcam could not open. Please check connection.")
-            ret, frame = cap.read()
-            im_in = np.array(frame)
-        # Load the demo image
-        else:
-            im_file = os.path.join(args.image_dir, imglist[num_images])
-            # im = cv2.imread(im_file)
-            im_in = np.array(imread(im_file, mode='RGB'))
+        # handle gray scale
         if len(im_in.shape) == 2:
             im_in = im_in[:, :, np.newaxis]
             im_in = np.concatenate((im_in, im_in, im_in), axis=2)
+
         # rgb -> bgr
         im = im_in[:, :, ::-1]
 
@@ -294,16 +275,14 @@ if __name__ == '__main__':
         rois, cls_prob, bbox_pred, \
         rpn_loss_cls, rpn_loss_box, \
         RCNN_loss_cls, RCNN_loss_bbox, \
-        rois_label, pooled_feats = fasterRCNN(im_data, im_info, gt_boxes, num_boxes, return_feats=True)
+        rois_label = fasterRCNN(im_data, im_info, gt_boxes, num_boxes)
 
-        if not printed:
-            print("rois: {}".format(rois.shape)) # 1 X 300 X 5
-            print("bbox_pred: {}".format(bbox_pred.shape)) # 1 X 300 X 384
-            print("pooled_Feats: {}".format(pooled_feats.shape)) # 300  x 2048
-
-        # print("rois: {}".format(rois))
-        # print("bbox_pred: {}".format(bbox_pred))
-        # print("pooled_Feats: {}".format(pooled_feats))
+        print("rois.shape: {}".format(rois.shape))
+        print("rois: {}".format(rois))
+        print("cls_prob.shape: {}".format(cls_prob.shape))
+        print("cls_prob: {}".format(cls_prob))
+        print("bbox_pred.shape: {}".format(bbox_pred.shape))
+        print("bbox_pred: {}".format(bbox_pred))
 
         scores = cls_prob.data
         boxes = rois.data[:, :, 1:5]
@@ -329,7 +308,7 @@ if __name__ == '__main__':
                     else:
                         box_deltas = box_deltas.view(-1, 4) * torch.FloatTensor(cfg.TRAIN.BBOX_NORMALIZE_STDS) \
                                      + torch.FloatTensor(cfg.TRAIN.BBOX_NORMALIZE_MEANS)
-                    box_deltas = box_deltas.view(1, -1, 4 * len(classes))
+                    box_deltas = box_deltas.view(1, -1, 4 * len(pascal_classes))
 
             pred_boxes = bbox_transform_inv(boxes, box_deltas, 1)
             pred_boxes = clip_boxes(pred_boxes, im_info.data, 1)
@@ -339,15 +318,13 @@ if __name__ == '__main__':
 
         pred_boxes /= im_scales[0]
 
-
         scores = scores.squeeze()
         pred_boxes = pred_boxes.squeeze()
         det_toc = time.time()
         detect_time = det_toc - det_tic
         misc_tic = time.time()
-        if vis:
-            im2show = np.copy(im)
-        for j in xrange(1, len(classes)):
+
+        for j in xrange(1, len(pascal_classes)):
             inds = torch.nonzero(scores[:, j] > thresh).view(-1)
             # if there is det
             if inds.numel() > 0:
@@ -361,40 +338,11 @@ if __name__ == '__main__':
                 cls_dets = torch.cat((cls_boxes, cls_scores.unsqueeze(1)), 1)
                 # cls_dets = torch.cat((cls_boxes, cls_scores), 1)
                 cls_dets = cls_dets[order]
-                # keep = nms(cls_dets, cfg.TEST.NMS, force_cpu=not cfg.USE_GPU_NMS)
-                # cls_dets = cls_dets[keep.view(-1).long()]
-                # if not printed:
-                #     print("cls_dets: {}".format(cls_dets.shape))
-                #     print("cls_dets: {}".format(cls_dets))
-                if vis:
-                    im2show = vis_detections(im2show, classes[j], cls_dets.cpu().numpy(), 0.5)
+                keep = nms(cls_dets, cfg.TEST.NMS, force_cpu=not cfg.USE_GPU_NMS)
+                cls_dets = cls_dets[keep.view(-1).long()]
 
         misc_toc = time.time()
         nms_time = misc_toc - misc_tic
 
-        if webcam_num == -1:
-            sys.stdout.write('im_detect: {:d}/{:d} {:.3f}s {:.3f}s   \r' \
-                             .format(num_images + 1, len(imglist), detect_time, nms_time))
-            sys.stdout.flush()
-
-        if vis and webcam_num == -1:
-            # cv2.imshow('test', im2show)
-            # cv2.waitKey(0)
-            result_path = os.path.join(args.out_dir, imglist[num_images][:-4] + "_det.jpg")
-            cv2.imwrite(result_path, im2show)
-        else:
-            im2showRGB = cv2.cvtColor(im2show, cv2.COLOR_BGR2RGB)
-            cv2.imshow("frame", im2showRGB)
-            total_toc = time.time()
-            total_time = total_toc - total_tic
-            frame_rate = 1 / total_time
-            print('Frame rate:', frame_rate)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
-
-        printed=True
-    if webcam_num >= 0:
-        cap.release()
-        cv2.destroyAllWindows()
-
-
+        print("pred_boxes: {}".format(pred_boxes.shape))
+        raise ValueError("Done!")
