@@ -16,7 +16,7 @@ CUDA_VISIBLE_DEVICES=2 python -u extract_features.py --dataset $DATASET \
 --checkpoint 34999 \
 --cuda \
 --use_oracle_gt_boxes \
---bs 16
+--bs 128
 
 SPLIT=val
 CUDA_VISIBLE_DEVICES=2 python -u extract_features.py --dataset $DATASET \
@@ -28,4 +28,4 @@ CUDA_VISIBLE_DEVICES=2 python -u extract_features.py --dataset $DATASET \
 --checkpoint 34999 \
 --cuda \
 --use_oracle_gt_boxes \
---bs 16
+--bs 128

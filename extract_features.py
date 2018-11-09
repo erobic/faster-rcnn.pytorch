@@ -515,7 +515,7 @@ if __name__ == '__main__':
             indices['image_id_to_ix'][img_id] = counter
             indices['image_ix_to_id'][counter] = img_id
 
-            with open(os.path.join(args.dataroot, 'faster-rcnn', '{}_ids_map.json'.format(args.split)), 'w') as f:
+            with open(os.path.join(args.dataroot, feat_dir, '{}_ids_map.json'.format(args.split)), 'w') as f:
                 json.dump(indices, f)
         else:
             if not printed:
