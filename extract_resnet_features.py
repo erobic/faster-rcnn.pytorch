@@ -204,9 +204,11 @@ def draw_preds(im2show, boxes, classes, score_class_ixs, scores):
         bbox = (int(curr_box[0]), int(curr_box[1]), int(curr_box[2]), int(curr_box[3]))
         cv2.rectangle(im2show, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (0, 204, 0), 2)
         class_name = classes[class_ix]
-        cv2.putText(im2show, '%s: %.3f' % (class_name, scores[ix][class_ix]), (bbox[0], bbox[1] + 15), cv2.FONT_HERSHEY_PLAIN,
+        cv2.putText(im2show, '%s: %.3f' % (class_name, scores[ix][class_ix]), (bbox[0], bbox[1] + 15),
+                    cv2.FONT_HERSHEY_PLAIN,
                     0.6, (0, 0, 255), thickness=1)
     return im2show
+
 
 def extract_imglist_from_scenes(scenes, num_images=None):
     image_ids = []
@@ -230,7 +232,7 @@ def extract_imglist(fn_list, num_images=None):
         image_id = filename_to_id(fn)
         image_ids.append(image_id)
         image_files.append(fn)
-        counter +=1
+        counter += 1
     return image_ids, image_files
 
 
@@ -239,14 +241,15 @@ def extract_gt_rois(objects):
     for ix in range(num_fixed_boxes):
         if ix < len(objects):
             obj = objects[ix]
-            #print("obj[xm,ax]: {}".format(obj['xmax']))
+            # print("obj[xm,ax]: {}".format(obj['xmax']))
             roi = [0, obj['xmin'], obj['ymin'], obj['xmax'], obj['ymax']]
         else:
             # pad with global context
-            roi = [0, 0, 0, 480, 320] # TODO: Do not use fixed dims for other datasets
+            roi = [0, 0, 0, 480, 320]  # TODO: Do not use fixed dims for other datasets
         rois.append(roi)
     rois = np.array(rois).astype(np.float32)
     return rois
+
 
 if __name__ == '__main__':
     printed = False
@@ -273,7 +276,7 @@ if __name__ == '__main__':
     load_name = os.path.join(input_dir,
                              'faster_rcnn_{}_{}_{}.pth'.format(args.checksession, args.checkepoch, args.checkpoint))
 
-    with open('/hdd/robik/CLEVR/faster-rcnn/objects_count.json') as ovf:
+    with open(args.dataroot + '/faster-rcnn/objects_count.json') as ovf:
         classes = list(json.load(ovf).keys())
 
     # initialize the network here.
@@ -347,18 +350,17 @@ if __name__ == '__main__':
     ### Init h5 file
     if not args.visualize_only:
         if args.use_oracle_gt_boxes:
-            feat_dir = 'oracle-faster-rcnn'
+            feat_dir = 'oracle-features'
         else:
-            feat_dir = 'faster-rcnn'
+            feat_dir = 'features'
 
-        h5_filename = args.dataroot + '/{}/{}_full_img.hdf5'.format(feat_dir, args.split)
+        h5_filename = args.dataroot + '/{}/{}.hdf5'.format(feat_dir, args.split)
         h5_file = h5py.File(h5_filename, "w")
         h5_img_features = h5_file.create_dataset(
             'image_features', (num_images, num_fixed_boxes, feature_length), 'f')
         h5_spatial_img_features = h5_file.create_dataset(
             'spatial_features', (num_images, num_fixed_boxes, 6), 'f')
         indices = {'image_id_to_ix': {}, 'image_ix_to_id': {}}
-
 
     counter = 0
     print("num_images: {}".format(num_images))
@@ -370,10 +372,8 @@ if __name__ == '__main__':
         img_id = image_ids[image_ix]
         if not printed:
             print("im_id: {}".format(img_id))
-        # im = cv2.imread(im_file)
+
         im_in = np.array(imread(im_file, mode='RGB'))
-        if not printed:
-            print("im shape: {}".format(im_in.shape))
         height, width = im_in.shape[0], im_in.shape[1]
         if len(im_in.shape) == 2:
             im_in = im_in[:, :, np.newaxis]
@@ -382,80 +382,9 @@ if __name__ == '__main__':
         im = im_in[:, :, ::-1]
 
         blobs, im_scales = _get_image_blob(im)
-        # if not printed:
-        #     print("im_scales {}".format(im_scales))
-        # assert len(im_scales) == 1, "Only single-image batch implemented"
         im_blob = blobs
-        #
-        # im_info_np = np.array([[im_blob.shape[1], im_blob.shape[2], im_scales[0]]], dtype=np.float32)
-        #
         im_data_pt = torch.from_numpy(im_blob)
-        # im_data_pt = im_data_pt.permute(0, 3, 1, 2)
-        # im_info_pt = torch.from_numpy(im_info_np)
-
         im_data.data.resize_(im_data_pt.size()).copy_(im_data_pt)
-        # im_info.data.resize_(im_info_pt.size()).copy_(im_info_pt)
-        # gt_boxes.data.resize_(1, 1, 5).zero_()
-        # num_boxes.data.resize_(1).zero_()
-
-        # pdb.set_trace()
         det_tic = time.time()
+        im_data = im_data.permute(0, 3, 1, 2)
         feats = fasterRCNN.extract_base_feat(im_data)
-        print("feats {}".format(feats.shape))
-
-
-    #     if not args.visualize_only:
-    #         h5_img_features[counter, :, :] = pooled_feats.data.cpu().numpy().astype(np.float32)
-    #
-    #         widths = pred_boxes[:, 2] - pred_boxes[:, 0]
-    #         heights = pred_boxes[:, 3] - pred_boxes[:, 1]
-    #         scaled_widths = widths / width
-    #         scaled_heights = heights / height
-    #         scaled_boxes = pred_boxes
-    #         scaled_boxes[:, 0] /= width
-    #         scaled_boxes[:, 2] /= width
-    #         scaled_boxes[:, 1] /= height
-    #         scaled_boxes[:, 3] /= height
-    #
-    #         scaled_widths = np.expand_dims(scaled_widths, axis=1)
-    #         scaled_heights = np.expand_dims(scaled_heights, axis=1)
-    #         if not printed:
-    #             print("scaled_widths.shape: {}".format(scaled_widths.shape))
-    #             print("scaled_heights.shape: {}".format(scaled_heights.shape))
-    #             print("scaled_boxes.shape: {}".format(scaled_boxes.shape))
-    #
-    #         spatial_features = np.concatenate((scaled_boxes, scaled_widths, scaled_heights), axis=1)
-    #
-    #         if not printed:
-    #             print("scaled_widths.shape: {}".format(scaled_widths.shape))
-    #             print("scaled_heights.shape: {}".format(scaled_heights.shape))
-    #             print("scaled_boxes.shape: {}".format(scaled_boxes.shape))
-    #             print("spatial_features.shape: {}".format(spatial_features.shape))
-    #
-    #         if not printed:
-    #             print("spatial_features.shape: {}".format(spatial_features.shape))
-    #         h5_spatial_img_features[counter, :, :] = spatial_features
-    #
-    #         indices['image_id_to_ix'][img_id] = counter
-    #         indices['image_ix_to_id'][counter] = img_id
-    #
-    #         with open(os.path.join(args.dataroot, feat_dir, '{}_ids_map.json'.format(args.split)), 'w') as f:
-    #             json.dump(indices, f)
-    #     else:
-    #         if not printed:
-    #             print("filtered_pred_boxes {}".format(np.array(filtered_pred_boxes).shape))
-    #             print("score_class_ixs {}".format(np.array(score_class_ixs).shape))
-    #
-    #         im2show = np.copy(im)
-    #         im2show = draw_preds(im2show, filtered_pred_boxes, classes, score_class_ixs, scores)
-    #         #plt.imshow(im2show)
-    #         plt.imsave(args.visualize_dir + '/' + 'VIS_'+str(img_id)+'.png', im2show)
-    #         plt.close()
-    #         # filtered_pred_boxes.append(pred_box[score_class_ixs[pred_box_ix]].cpu().numpy().tolist())
-    #         #plt.show()
-    #
-    #
-    #     counter += 1
-    #     printed = True
-    # if not args.visualize_only:
-    #     h5_file.close()

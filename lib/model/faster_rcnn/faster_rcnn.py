@@ -153,8 +153,8 @@ class _fasterRCNN(nn.Module):
 
     def extract_base_feat(self, im_data):
         # feed image data to base model to obtain base feature map
+        im_data = im_data.cuda()
         base_feat = self.RCNN_base(im_data)
-        print("base_feat.shape {}".format(base_feat.shape))
         return base_feat
 
     def _init_weights(self):

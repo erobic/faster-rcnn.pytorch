@@ -390,8 +390,6 @@ if __name__ == '__main__':
             print("im_id: {}".format(img_id))
         # im = cv2.imread(im_file)
         im_in = np.array(imread(im_file, mode='RGB'))
-        if not printed:
-            print("im shape: {}".format(im_in.shape))
         height, width = im_in.shape[0], im_in.shape[1]
         if len(im_in.shape) == 2:
             im_in = im_in[:, :, np.newaxis]
