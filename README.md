@@ -13,6 +13,7 @@ It contains scripts to extract FasterRCNN features for CLEVR dataset.
     b. You may have to edit the ```CUDA_ARCH``` variable inside ```lib/make.sh``` to ensure things are compatible with your GPU.
 
 2. Download pre-trained [FasterRCNN model](https://github.com/erobic/faster_rcnn_1_11_34999/raw/master/faster_rcnn_1_11_34999.pth) to a path, say, to: ```${ROOT}/FasterRCNN/models/res101/clevr```
+This model has been trained on training images of CLEVR dataset.
 
 3. Download [objects_count.json](https://raw.githubusercontent.com/erobic/faster_rcnn_1_11_34999/master/objects_count.json) inside ```${ROOT}/CLEVR/faster-rcnn/```
 
