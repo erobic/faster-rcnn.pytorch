@@ -2,6 +2,8 @@ This repository was cloned from an earlier version of [faster-rcnn.pytorch repos
 
 It contains scripts to extract FasterRCNN features for CLEVR dataset.
 
+You can download [pre-trained models from here](https://drive.google.com/drive/folders/1OuGv2vurat4_V4IQsUoZhC0OeZV7Oh_K?usp=sharing).
+
 
 ### To extract features from CLEVR dataset
 1. Compile the library by executing ```make.sh``` inside the ```lib``` directory. Note that I had faced several issues while compiling the library. I used the following setup/modifications, which may be helpful to you too:
