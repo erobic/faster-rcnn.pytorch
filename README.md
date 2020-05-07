@@ -2,7 +2,10 @@ This repository was cloned from an earlier version of [faster-rcnn.pytorch repos
 
 It contains scripts to extract FasterRCNN features for CLEVR dataset.
 
-You can download [extracted features from here](https://drive.google.com/drive/folders/1OuGv2vurat4_V4IQsUoZhC0OeZV7Oh_K?usp=sharing).
+### You can download [extracted features from here](https://drive.google.com/drive/folders/1OuGv2vurat4_V4IQsUoZhC0OeZV7Oh_K?usp=sharing). 
+It has two keys:
+1. `image_features` of shape `N x num_objects x feature_dims`, contains the image features of 15 objects per image of 2048 dimensions.
+2. `box_features` of shape `N x num_objects x 6`, where the 6 dimensions refer to: (x1, y1, x2, y2, width, height). They are normalized to 0 and 1.
 
 
 ### To extract features from CLEVR dataset
